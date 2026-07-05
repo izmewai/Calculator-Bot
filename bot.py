@@ -1,5 +1,5 @@
 import re
-from telegram import Update
+from telegram import Update, ChatMember
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
 TOKEN = "8971711916:AAHVPZTs_gL0kuUG-9jqYMEeot0wwLkGgNM"
@@ -21,7 +21,7 @@ async def set_welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
     welcome_msgs[update.effective_chat.id] = " ".join(context.args)
     await update.message.reply_text("ကြိုဆိုစာအသစ်ထည့်သွင်းလိုက်ပါပြီ ✅")
 
-# 3. Admin Tools
+# 3. Admin Tools (Ban & Warning)
 async def ban(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.reply_to_message:
         await context.bot.ban_chat_member(update.effective_chat.id, update.message.reply_to_message.from_user.id)
@@ -37,8 +37,14 @@ async def warning(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text(f"Warning ({warnings[chat_id][user_id]}) ကြိမ်ပေးလိုက်ပါပြီ။")
 
-# 4. Filter System
+# 4. Filter System (Admin Only)
 async def set_filter(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Admin/Owner ဟုတ်မဟုတ် စစ်ဆေးခြင်း
+    user_status = await context.bot.get_chat_member(update.effective_chat.id, update.effective_user.id)
+    if user_status.status not in [ChatMember.OWNER, ChatMember.ADMINISTRATOR]:
+        await update.message.reply_text("𝖮𝗇𝗅𝗒 𝖥𝗈𝗋 𝖮𝗐𝗇𝖾𝗋 𝖺𝗇𝖽 𝖠𝖽𝗆𝗂𝗇")
+        return
+
     if len(context.args) < 2: return
     key = context.args[0]
     value = " ".join(context.args[1:])

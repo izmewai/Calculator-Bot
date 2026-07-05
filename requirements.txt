@@ -1,6 +1,2 @@
 python-telegram-bot
 requests
-pytgcalls
-yt-dlp
-ffmpeg-python
-PyNaCl

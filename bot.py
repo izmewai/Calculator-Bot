@@ -7,6 +7,14 @@ TOKEN = "8971711916:AAHVPZTs_gL0kuUG-9jqYMEeot0wwLkGgNM"
 # Data Storage
 welcome_msgs, filters_data, warnings = {}, {}, {}
 
+# Admin Check Function
+async def is_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_status = await context.bot.get_chat_member(update.effective_chat.id, update.effective_user.id)
+    if user_status.status in [ChatMember.OWNER, ChatMember.ADMINISTRATOR]:
+        return True
+    await update.message.reply_text("ဒါကို ဂျီဘီအုံနာနဲ့အက်မင်များသာ အသုံးပြုခွင့်ရှိပါတယ် ၊ အသုံးပြုနိုင်ရန် အက်မင်ရယူပါ")
+    return False
+
 # 1. Calculator
 async def calc(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
@@ -16,12 +24,18 @@ async def calc(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(f"{text} = {res}")
         except: pass
 
-# 2. Welcome System
+# 2. Welcome System (Admin Only)
 async def set_welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await is_admin(update, context): return
     welcome_msgs[update.effective_chat.id] = " ".join(context.args)
     await update.message.reply_text("ကြိုဆိုစာအသစ်ထည့်သွင်းလိုက်ပါပြီ ✅")
 
-# 3. Admin Tools (Ban & Warning)
+async def welcome_delete(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await is_admin(update, context): return
+    welcome_msgs.pop(update.effective_chat.id, None)
+    await update.message.reply_text("ကြိုဆိုစာဖျက်ပြီးပါပြီ ✅")
+
+# 3. Admin Tools
 async def ban(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.reply_to_message:
         await context.bot.ban_chat_member(update.effective_chat.id, update.message.reply_to_message.from_user.id)
@@ -39,12 +53,7 @@ async def warning(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # 4. Filter System (Admin Only)
 async def set_filter(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Admin/Owner ဟုတ်မဟုတ် စစ်ဆေးခြင်း
-    user_status = await context.bot.get_chat_member(update.effective_chat.id, update.effective_user.id)
-    if user_status.status not in [ChatMember.OWNER, ChatMember.ADMINISTRATOR]:
-        await update.message.reply_text("𝖮𝗇𝗅𝗒 𝖥𝗈𝗋 𝖮𝗐𝗇𝖾𝗋 𝖺𝗇𝖽 𝖠𝖽𝗆𝗂𝗇")
-        return
-
+    if not await is_admin(update, context): return
     if len(context.args) < 2: return
     key = context.args[0]
     value = " ".join(context.args[1:])
@@ -67,6 +76,7 @@ app = ApplicationBuilder().token(TOKEN).build()
 app.add_handlers([
     CommandHandler("start", lambda u, c: u.message.reply_text("Reven Bot စတင်နေပါပြီ!")),
     CommandHandler("welcome", set_welcome),
+    CommandHandler("welcomedelete", welcome_delete),
     CommandHandler("ban", ban),
     CommandHandler("warning", warning),
     CommandHandler("filter", set_filter),
@@ -75,3 +85,4 @@ app.add_handlers([
 
 print("Bot စတင်ပြီ...")
 app.run_polling()
+    

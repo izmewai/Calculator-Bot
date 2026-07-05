@@ -1,27 +1,22 @@
-import requests
+import re
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
-import re
 
 TOKEN = "8971711916:AAHVPZTs_gL0kuUG-9jqYMEeot0wwLkGgNM"
-
-# Data Storage
 welcome_msgs, filters_data, warnings = {}, {}, {}
 
-# 1. Calculator (ရှင်းလင်းစွာ)
+# 1. Calculator
 async def calc(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     if re.match(r'^\d+\s*[\+\-\*/]\s*\d+$', text):
         try:
-            result = eval(text)
-            await update.message.reply_text(f"{text} = {result}")
+            res = eval(text)
+            await update.message.reply_text(f"{text} = {res}")
         except: pass
 
-# 2. MLBB Check (ID နှင့် Server ခွဲခြားခြင်း)
+# 2. MLBB Region Check (Mockup System - API မလိုဘဲ စမ်းသပ်ရန်)
 async def check_mlbb(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # အသုံးပြုသူပို့လိုက်တဲ့ စာထဲက ဂဏန်းတွေကို အကုန်ထုတ်ယူ (ID နှင့် Server ခွဲရန်)
     numbers = re.findall(r'\d+', update.message.text)
-    
     if len(numbers) < 2:
         await update.message.reply_text("အမှား - /check [ID] [Server] ဟု ရိုက်ပေးပါ။")
         return
@@ -29,27 +24,32 @@ async def check_mlbb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = numbers[0]
     server_id = numbers[1]
     
-    await update.message.reply_text("🔎 ရှာဖွေနေပါသည်...")
+    # ရှာဖွေနေကြောင်း ပြသခြင်း
+    wait_msg = await update.message.reply_text("Mlbb Account ကိုရှာဖွေနေပါတယ် ....")
     
-    # ဤနေရာတွင် သင်သုံးမည့် MLBB API ကို အစားထိုးပါ
-    # ဥပမာ - API URL တစ်ခုကို request လုပ်ခြင်း
-    # response = requests.get(f"https://api.example.com/check?id={user_id}&zone={server_id}")
-    
-    msg = (f"------ Reven Mlbb Check -----\n\n"
-           f"Account Name - (APIမှရရှိသောနာမည်)\n"
-           f"Id - {user_id} ({server_id})\n"
-           f"Region - (APIမှရရှိသောဒေသ)\n\n"
-           f"-------------------------------------------------------")
-    await update.message.reply_text(msg)
+    # ဤနေရာတွင် ID ကိုစစ်ဆေးသည် (ဥပမာ - 123456789 ဆိုရင် တွေ့တယ်လို့ သတ်မှတ်သည်)
+    if user_id == "123456789":
+        name = "Reven"
+        region = "Myanmar"
+        result_msg = (f"----- Reven's Mlbb Region Check -----\n\n"
+                      f"Account Name - {name}\n"
+                      f"Id - {user_id} ({server_id})\n"
+                      f"Region - {region}\n\n"
+                      f"-------------------------------------------------------")
+        await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=wait_msg.message_id)
+        await update.message.reply_text(result_msg)
+    else:
+        # မတွေ့ပါက ပြမည့်စာ
+        await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=wait_msg.message_id)
+        await update.message.reply_text("ID + SEVER ကိုရှာမတွေ့ပါ ။ သေချာစွာစစ်ဆေးပြီးပြန်ပို့ပါ ။")
 
-# 3. Features (Welcome, Ban, Warning, Filter) - ယခင်အတိုင်း
+# 3. အခြား Features များ
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("---- 𝖶𝖾𝗅𝖼𝗈𝗆𝖾 𝖡𝖺𝖻𝗒 ----\n\n- /help ဖြင့်ကြည့်နိုင်ပါတယ် ❤️")
+
 async def set_welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
     welcome_msgs[update.effective_chat.id] = " ".join(context.args)
     await update.message.reply_text("ကြိုဆိုစာအသစ်ထည့်သွင်းလိုက်ပါပြီ ✅")
-
-async def welcome_delete(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    welcome_msgs.pop(update.effective_chat.id, None)
-    await update.message.reply_text("ကြိုဆိုစာဖျက်ပြီးပါပြီ ✅")
 
 async def ban(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.reply_to_message:
@@ -69,23 +69,16 @@ async def warning(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text(f"Warning ( {count} ) ကြိမ်ပေးလိုက်ပါပြီ ၊ 3 ကြိမ်ပြည့်ရင် Group ကနေ Auto Ban ခံရမှာဖြစ်ပါတယ်")
 
-async def check_filter(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text
-    chat_id = update.effective_chat.id
-    if chat_id in filters_data and text in filters_data[chat_id]:
-        await update.message.reply_text(filters_data[chat_id][text])
-    else:
-        await calc(update, context)
-
-# App Setup
+# Handlers Setup
 app = ApplicationBuilder().token(TOKEN).build()
 app.add_handlers([
-    CommandHandler("start", lambda u, c: u.message.reply_text("Reven Bot စတင်နေပါပြီ!")),
+    CommandHandler("start", start),
     CommandHandler("check", check_mlbb),
-    CommandHandler("welcome", set_welcome), CommandHandler("welcomedelete", welcome_delete),
-    CommandHandler("ban", ban), CommandHandler("warning", warning),
-    CommandHandler("filter", set_filter),
-    MessageHandler(filters.TEXT & (~filters.COMMAND), check_filter)
+    CommandHandler("welcome", set_welcome),
+    CommandHandler("ban", ban),
+    CommandHandler("warning", warning),
+    MessageHandler(filters.TEXT & (~filters.COMMAND), lambda u, c: calc(u, c) if not filters_data.get(u.effective_chat.id, {}).get(u.message.text) else u.message.reply_text(filters_data[u.effective_chat.id][u.message.text]))
 ])
 
+print("Bot စတင်ပြီ...")
 app.run_polling()

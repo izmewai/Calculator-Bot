@@ -7,7 +7,7 @@ TOKEN = "8971711916:AAHVPZTs_gL0kuUG-9jqYMEeot0wwLkGgNM"
 # Data Storage
 welcome_msgs, filters_data, warnings = {}, {}, {}
 
-# Admin Check Function
+# Admin Check Function (Owner/Admin သီးသန့်)
 async def is_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_status = await context.bot.get_chat_member(update.effective_chat.id, update.effective_user.id)
     if user_status.status in [ChatMember.OWNER, ChatMember.ADMINISTRATOR]:
@@ -37,11 +37,13 @@ async def welcome_delete(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # 3. Admin Tools
 async def ban(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await is_admin(update, context): return
     if update.message.reply_to_message:
         await context.bot.ban_chat_member(update.effective_chat.id, update.message.reply_to_message.from_user.id)
         await update.message.reply_text("Owner Banned From Group")
 
 async def warning(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await is_admin(update, context): return
     chat_id, user_id = update.effective_chat.id, update.message.reply_to_message.from_user.id
     if chat_id not in warnings: warnings[chat_id] = {}
     warnings[chat_id][user_id] = warnings[chat_id].get(user_id, 0) + 1
@@ -85,4 +87,3 @@ app.add_handlers([
 
 print("Bot စတင်ပြီ...")
 app.run_polling()
-    

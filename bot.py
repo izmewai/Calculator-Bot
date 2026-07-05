@@ -79,5 +79,15 @@ app.add_handler(CommandHandler("filter", set_filter))
 app.add_handler(CommandHandler("ban", ban))
 app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), calculator))
 app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), check_filter))
-app.run_polling()
+if __name__ == '__main__':
+    # Web server အတွက် (Render အတွက် လိုအပ်ပါတယ်)
+    Thread(target=run_web).start()
+    
+    # Bot အတွက်
+    app.run_webhook(
+        listen="0.0.0.0",
+        port=8080,
+        url_path=TOKEN,
+        webhook_url="https://calculator-bot-1-az9k.onrender.com/" + TOKEN)
+    
         

@@ -1,115 +1,86 @@
-import logging
-from telegram import Update
-from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters
-from flask import Flask
-from threading import Thread
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters, CallbackContext
 
-# --- Flask Server ---
-app_web = Flask(__name__)
-@app_web.route('/')
-def home():
-    return "Bot is running!"
+# သင့် Bot Token နှင့် Admin ID
+TOKEN = "8686667809:AAESji8x0LLe9v0bU3H-buExwoiYe6Nz58A"
+ADMIN_ID = 8454178636
 
-def run_web():
-    app_web.run(host='0.0.0.0', port=8080)
-
-# --- Configuration ---
-TOKEN = "YOUR_TOKEN_HERE" 
-OWNER_ID = 8454178636 # သင့်ရဲ့ ID အမှန်
-
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
-
-warnings = {}
-welcome_messages = {}
-
-# --- Admin Check ---
-async def is_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    chat_id = update.effective_chat.id
-    try:
-        member = await context.bot.get_chat_member(chat_id, user_id)
-        if member.status in ['creator', 'administrator']:
-            return True
-        else:
-            await update.message.reply_text("အုံနာနဲ့အက်မင်တွေသာဒီအရာတွေကိုအသုံးပြုနိုင်ပါတယ် ။")
-            return False
-    except:
-        return False
-
-# --- Scammer Report (/scm) ---
-async def report_scammer(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message.reply_to_message:
-        await update.message.reply_text("Scammer လို့ထင်တဲ့သူရဲ့ စာကို Reply ပြန်ပြီး /scm လို့ ပို့ပေးပါ။")
-        return
-
-    reported_user = update.message.reply_to_message.from_user
-    reporter_user = update.effective_user
-    chat = update.effective_chat
-
-    await update.message.reply_text("Scammer ဟုတိုင်ကြားထားပါသည် ၊ အချက်အလတ်များကိုစစ်ဆေးနေပါသည် ....")
-
-    report_text = (
-        f"--- တိုင်ကြားမှုအသစ် ---\n\n"
-        f"Scammer ဟုတိုင်ကြားခံရသူ - @{reported_user.username or reported_user.id}\n"
-        f"တိုင်ကြားသူ - @{reporter_user.username or reporter_user.id}\n"
-        f"တိုင်ကြားထားသော Gp - {chat.title}\n"
-        f"-------------------------------------------------------"
+def start(update: Update, context: CallbackContext):
+    text = (
+        "𝖶𝖾𝗅𝖼𝗈𝗆𝖾 𝖥𝗋𝗈𝗆 𝖡𝖾𝗋𝗋𝗒'𝗌 𝖲𝗁𝗈𝗉 \n\n"
+        "ဒီ 𝖡𝗈𝗍 လေးမှာ 𝗂𝗍𝖾𝗆𝗌 အစုံတော်တော်များများကိုဝယ်ယူနိုင်ပါတယ် \n\n"
+        "အမြန်ဆန်ဆုံး 𝖥𝖺𝗌𝗍𝖾𝗌𝗍 𝖲𝖾𝗋𝗏𝗂𝖼𝖾 ပေးမှာမို့ ယုံကြည်စိတ်ချလို့ရပါတယ်  \n\n"
+        "ရရှိနိုင်တာတွေကတော့ 𝖳𝖾𝗅𝖾𝗀𝗋𝖺𝗆 𝖯𝗋𝖾𝗆𝗂𝗎𝗆 , 𝖳𝖾𝗅𝖾𝗀𝗋𝖺𝗆 𝖲𝗍𝖺𝗋 , 𝖳𝖾𝗅𝖾𝗀𝗋𝖺𝗆 𝖠𝖼𝖼𝗈𝗎𝗇𝗍 ဖြစ်ပြီး ကိုယ်ဝယ်ယူချင်တဲ့အရာတွေကိုလည်းမေးဝယ်လို့ရပါတယ် \n\n"
+        "𝖭𝖿𝗍 တွေလည်းရနိုင်တာတွေကို 𝖴𝗉𝖽𝖺𝗍𝖾 နေ့စဉ် 𝖡𝗈𝗍 ဘက်ကပေးနေမှာပါ \n\n"
+        "𝖳𝗒𝗌𝗆 𝖥𝗈𝗋 𝗎𝗌𝗂𝗇𝗀 𝗆𝗒 𝖻𝗈𝗍 𝖦𝗎𝗒𝗌𝗌 ... "
     )
-    await context.bot.send_message(chat_id=OWNER_ID, text=report_text)
+    keyboard = [
+        [InlineKeyboardButton("🛒 ရရှိနိုင်သည်များ", callback_data='price_list')],
+        [InlineKeyboardButton("💳 Buy", callback_data='buy_process')],
+        [InlineKeyboardButton("📩 စာပို့မည်", callback_data='contact_admin')]
+    ]
+    update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
 
-# --- Features ---
-async def calculate(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text
-    if any(op in text for op in ['+', '-', '*', '/']):
-        try:
-            result = eval(text)
-            await update.message.reply_text(f"📊 {text} = {result}")
-        except: pass
-
-async def ban(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not await is_admin(update, context): return
-    if update.message.reply_to_message:
-        user = update.message.reply_to_message.from_user
-        await context.bot.ban_chat_member(update.effective_chat.id, user.id)
-        await update.message.reply_text(f"🚫 {user.first_name} ကို Group မှ ဘန်းလိုက်ပါပြီ။")
-
-async def warn(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not await is_admin(update, context): return
-    if update.message.reply_to_message:
-        user = update.message.reply_to_message.from_user
-        warnings[user.id] = warnings.get(user.id, 0) + 1
-        if warnings[user.id] >= 3:
-            await context.bot.ban_chat_member(update.effective_chat.id, user.id)
-            await update.message.reply_text(f"🚫 {user.first_name} သည် သတိပေးချက် ၃ ကြိမ်ပြည့်၍ ဘန်းလိုက်ပါပြီ။")
-            warnings[user.id] = 0
-        else:
-            await update.message.reply_text(f"⚠️ {user.first_name} သတိပေးချက် {warnings[user.id]} ကြိမ်မြောက်။")
-
-async def set_welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not await is_admin(update, context): return
-    msg = " ".join(context.args)
-    if msg:
-        welcome_messages[update.effective_chat.id] = msg
-        await update.message.reply_text("✅ ကြိုဆိုစာကို သိမ်းဆည်းလိုက်ပါပြီ။")
-
-async def greet_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.effective_chat.id
-    if chat_id in welcome_messages:
-        for member in update.message.new_chat_members:
-            text = f'👋 <a href="tg://user?id={member.id}">{member.first_name}</a> {welcome_messages[chat_id]}'
-            await context.bot.send_message(chat_id=chat_id, text=text, parse_mode='HTML')
-
-# --- Main App ---
-if __name__ == '__main__':
-    Thread(target=run_web).start() 
-    app = ApplicationBuilder().token(TOKEN).build()
+def button_click(update: Update, context: CallbackContext):
+    query = update.callback_query
+    query.answer()
     
-    app.add_handler(CommandHandler("scm", report_scammer))
-    app.add_handler(CommandHandler("ban", ban))
-    app.add_handler(CommandHandler("warning", warn))
-    app.add_handler(CommandHandler("welcome", set_welcome))
-    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), calculate))
-    app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, greet_new_member))
+    if query.data == 'price_list':
+        text = (
+            "𝖳𝖾𝗅𝖾𝗀𝗋𝖺𝗆 𝖯𝗋𝖾𝗆𝗂𝗎𝗆 𝖯𝗋𝗂𝖼𝖾 \n\n"
+            "𝟣𝗆𝗈𝗇𝗍𝗁 - 𝟤𝟥𝟧𝟢𝟢𝖪𝗌 (Login ပေးဝင်ရပါမယ်)\n"
+            "𝟥𝗆𝗈𝗇𝗍𝗁 - 𝟧𝟨𝟧𝟢𝟢𝖪𝗌 | 𝟨𝗆𝗈𝗇𝗍𝗁 - 𝟩𝟧𝟧𝟢𝟢𝖪𝗌 | 𝟣𝗒𝖾𝖺𝗋 - 𝟣𝟤𝟪𝟧𝟢𝟢𝖪𝗌 (Gift Plan)\n\n"
+            "𝖳𝖾𝗅𝖾𝗀𝗋𝖺𝗆 𝖲𝗍𝖺𝗋 𝖯𝗋𝗂𝖼𝖾 \n"
+            "𝟧𝟢-𝟥𝟩𝟢𝟢 | 𝟩𝟧-𝟨𝟥𝟢𝟢 | 𝟣𝟢𝟢-𝟩𝟣𝟢𝟢 | 𝟣𝟧𝟢-𝟣𝟦𝟢𝟢𝟢 | 𝟤𝟢𝟢-𝟣𝟨𝟧𝟢𝟢 | 𝟥𝟢𝟢-𝟤𝟦𝟧𝟢𝟢 | 𝟦𝟢𝟢-𝟥𝟦𝟢𝟢𝟢 | 𝟧𝟢𝟢-𝟥𝟪𝟧𝟢𝟢 | 𝟣𝟢𝟢𝟢-𝟩𝟨𝟧𝟢𝟢\n\n"
+            "𝖳𝖾𝗅𝖾𝗀𝗋𝖺𝗆 𝖠𝖼𝖼𝗈𝗎𝗇𝗍 𝖯𝗋𝗂𝖼𝖾 \n"
+            "𝟣 𝖠𝖼𝖼 𝟣𝟦𝟢𝟢𝖪𝗌 (Myanmar Phone Number)"
+        )
+        query.edit_message_text(text, reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Back", callback_data='start')]]))
     
-    app.run_polling()
+    elif query.data == 'buy_process':
+        query.edit_message_text("Payment Wave - 09428232096 NK \n( Bill လက်မခံ မိနစ် ၃၀ ကျော်သောပြေစာလက်မခံ မှားလွှဲတာဝန်မယူ ) \n\nပြေစာပုံကို ဒီ Bot ဆီ ပုံအနေနဲ့ ပို့ပေးပါ။")
     
+    elif query.data == 'contact_admin':
+        query.edit_message_text("အဆင်မပြေသည်များရှိပါက >> @cuzmei ကိုလာပါ ။")
+    
+    elif query.data == 'start':
+        start(update, context)
+
+    elif query.data.startswith('accept_'):
+        if update.effective_user.id == ADMIN_ID:
+            user_id = query.data.split('_')[1]
+            context.bot.send_message(chat_id=user_id, text="သင်၏အော်ဒါတင်မှုအောင်မြင်ပါသည် ✅ ၊ စောင့်ဆိုင်းပါ ...")
+            query.edit_message_text("အော်ဒါလက်ခံလိုက်ပါပြီ။")
+    
+    elif query.data.startswith('reject_'):
+        if update.effective_user.id == ADMIN_ID:
+            user_id = query.data.split('_')[1]
+            context.bot.send_message(chat_id=user_id, text="သင်၏ပြေစာမမှန်ကန်ပါ။ ❌")
+            query.edit_message_text("အော်ဒါငြင်းပယ်လိုက်ပါပြီ။")
+
+def handle_photo(update: Update, context: CallbackContext):
+    user_id = update.message.from_user.id
+    photo_file = update.message.photo[-1].file_id
+    
+    context.bot.send_photo(chat_id=ADMIN_ID, photo=photo_file, caption=f"User ID: {user_id} မှ ငွေလွှဲပြေစာ ပို့လာပါသည်။",
+                           reply_markup=InlineKeyboardMarkup([
+                               [InlineKeyboardButton("✅ လက်ခံသည်", callback_data=f'accept_{user_id}'),
+                                InlineKeyboardButton("❌ လက်မခံပါ", callback_data=f'reject_{user_id}')]
+                           ]))
+    update.message.reply_text("ပြေစာ ပို့ပြီးပါပြီ။ Admin အတည်ပြုသည်အထိ စောင့်ဆိုင်းပေးပါ။")
+
+def done_command(update: Update, context: CallbackContext):
+    if update.message.from_user.id == ADMIN_ID and context.args:
+        user_id = context.args[0]
+        context.bot.send_message(chat_id=user_id, text="အော်ဒါပြီးမြောက်ပါပြီ ဝယ်ယူအားပေးမှုအတွက်အထူးပင်ကျေးဇူးတင်ပါသည် 🎉")
+        update.message.reply_text(f"User {user_id} ကို အကြောင်းကြားပြီးပါပြီ။")
+
+updater = Updater(TOKEN)
+dp = updater.dispatcher
+dp.add_handler(CommandHandler('start', start))
+dp.add_handler(CommandHandler('done', done_command))
+dp.add_handler(CallbackQueryHandler(button_click))
+dp.add_handler(MessageHandler(Filters.photo, handle_photo))
+
+updater.start_polling()
+updater.idle()

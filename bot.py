@@ -1,92 +1,118 @@
 import logging
 from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters
+from flask import Flask
+from threading import Thread
 
-TOKEN = "8947711591:AAGblAYzsAL2T0meBSIwT5viF0SD40uZpdU"
+# --- Flask Server (UptimeRobot အတွက်) ---
+app_web = Flask(__name__)
+@app_web.route('/')
+def home():
+    return "Bot is running!"
 
-# ဒေတာသိမ်းရန် Dictionary များ
-warnings = {}
-welcome_messages = {}
+def run_web():
+    app_web.run(host='0.0.0.0', port=8080)
+
+# --- Configuration ---
+TOKEN = "YOUR_TOKEN_HERE" # သင့် Bot Token ကို ဒီမှာထည့်ပါ
+OWNER_ID = 8698057416 # သင့်ရဲ့ ID
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
-# --- Admin စစ်ဆေးရန် Function ---
+warnings = {}
+welcome_messages = {}
+
+# --- Admin Check Function ---
 async def is_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
     try:
         member = await context.bot.get_chat_member(chat_id, user_id)
-        return member.status in ['creator', 'administrator']
+        if member.status in ['creator', 'administrator']:
+            return True
+        else:
+            await update.message.reply_text(
+                "သင်အသုံးပြုလို့မရပါ 🚫 \n\n"
+                "- ဒီ Commands တွေကို အုံနာနဲ့အက်မင်တွေသာအသုံးပြုနိုင်ပါတယ် ၊ အသုံးပြုလိုပါက အက်မင်ရယူပါ ။"
+            )
+            return False
     except:
         return False
 
-# --- Calculator ---
+# --- Scammer Report (/scm) ---
+async def report_scammer(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.message.reply_to_message:
+        await update.message.reply_text("Scammer လို့ထင်တဲ့သူရဲ့ စာကို Reply ပြန်ပြီး /scm လို့ ပို့ပေးပါ။")
+        return
+
+    reported_user = update.message.reply_to_message.from_user
+    reporter_user = update.effective_user
+    chat = update.effective_chat
+
+    await update.message.reply_text("Scammer ဟုတိုင်ကြားထားပါသည် ၊ အချက်အလတ်များကိုစစ်ဆေးနေပါသည် ....")
+
+    report_text = (
+        f"--- တိုင်ကြားမှုအသစ် ---\n\n"
+        f"Scammer ဟုတိုင်ကြားခံရသူ - @{reported_user.username or reported_user.id}\n"
+        f"တိုင်ကြားသူ - @{reporter_user.username or reporter_user.id}\n"
+        f"တိုင်ကြားထားသော Gp - {chat.title}\n"
+        f"-------------------------------------------------------"
+    )
+    await context.bot.send_message(chat_id=OWNER_ID, text=report_text)
+
+# --- Features ---
 async def calculate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     if any(op in text for op in ['+', '-', '*', '/']):
         try:
             result = eval(text)
-            await update.message.reply_text(f"{text} = {result}")
-        except:
-            pass
+            await update.message.reply_text(f"📊 {text} = {result}")
+        except: pass
 
-# --- Ban / Unban ---
 async def ban(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await is_admin(update, context): return
     if update.message.reply_to_message:
         user = update.message.reply_to_message.from_user
         await context.bot.ban_chat_member(update.effective_chat.id, user.id)
-        await update.message.reply_text(f"{user.first_name} ကို Group မှ ဘန်းလိုက်ပါတယ် ✅")
+        await update.message.reply_text(f"🚫 {user.first_name} ကို Group မှ ဘန်းလိုက်ပါပြီ။")
 
-async def unban(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not await is_admin(update, context): return
-    if context.args:
-        user_id = context.args[0]
-        await context.bot.unban_chat_member(update.effective_chat.id, user_id)
-        await update.message.reply_text("ဘန်းဖြည်ပြီးပါပြီ ✅")
-
-# --- Warning System ---
 async def warn(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await is_admin(update, context): return
     if update.message.reply_to_message:
         user = update.message.reply_to_message.from_user
         warnings[user.id] = warnings.get(user.id, 0) + 1
-        
         if warnings[user.id] >= 3:
             await context.bot.ban_chat_member(update.effective_chat.id, user.id)
-            await update.message.reply_text(f"ဝမ်းနည်းပါတယ် {user.first_name}, Warning 3 ကြိမ်ပြည့်ပြီဖြစ်တဲ့အတွက် Group မှ Banned လုပ်လိုက်ပါသည် 🚫")
+            await update.message.reply_text(f"🚫 {user.first_name} သည် သတိပေးချက် ၃ ကြိမ်ပြည့်၍ ဘန်းလိုက်ပါပြီ။")
             warnings[user.id] = 0
         else:
-            await update.message.reply_text(f"သတိပေးချက် {warnings[user.id]} ကြိမ်မြောက်! 3 ကြိမ်ပြည့်ပါက Auto Ban ခံရမည်။")
+            await update.message.reply_text(f"⚠️ {user.first_name} သတိပေးချက် {warnings[user.id]} ကြိမ်မြောက်။")
 
-# --- Welcome System ---
 async def set_welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await is_admin(update, context): return
     msg = " ".join(context.args)
     if msg:
         welcome_messages[update.effective_chat.id] = msg
-        await update.message.reply_text("သင်၏ ကြိုဆိုစာကို ထည့်သွင်းလိုက်ပါပြီ ✅")
-    else:
-        await update.message.reply_text("အသုံးပြုပုံ: /welcome [စာသား]")
+        await update.message.reply_text("✅ ကြိုဆိုစာကို သိမ်းဆည်းလိုက်ပါပြီ။")
 
 async def greet_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     if chat_id in welcome_messages:
         for member in update.message.new_chat_members:
-            text = f'<a href="tg://user?id={member.id}">{member.first_name}</a> {welcome_messages[chat_id]}'
+            text = f'👋 <a href="tg://user?id={member.id}">{member.first_name}</a> {welcome_messages[chat_id]}'
             await context.bot.send_message(chat_id=chat_id, text=text, parse_mode='HTML')
 
 # --- Main App ---
 if __name__ == '__main__':
+    Thread(target=run_web).start() 
     app = ApplicationBuilder().token(TOKEN).build()
     
+    app.add_handler(CommandHandler("scm", report_scammer))
     app.add_handler(CommandHandler("ban", ban))
-    app.add_handler(CommandHandler("unban", unban))
     app.add_handler(CommandHandler("warning", warn))
     app.add_handler(CommandHandler("welcome", set_welcome))
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), calculate))
     app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, greet_new_member))
     
-    print("Bot စတင်လည်ပတ်နေပါပြီ...")
     app.run_polling()
     

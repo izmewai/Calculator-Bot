@@ -4,7 +4,7 @@ from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, Messa
 from flask import Flask
 from threading import Thread
 
-# --- Flask Server (UptimeRobot အတွက်) ---
+# --- Flask Server ---
 app_web = Flask(__name__)
 @app_web.route('/')
 def home():
@@ -14,15 +14,15 @@ def run_web():
     app_web.run(host='0.0.0.0', port=8080)
 
 # --- Configuration ---
-TOKEN = "YOUR_TOKEN_HERE" # သင့် Bot Token ကို ဒီမှာထည့်ပါ
-OWNER_ID = 8698057416 # သင့်ရဲ့ ID
+TOKEN = "YOUR_TOKEN_HERE" 
+OWNER_ID = 8454178636 # သင့်ရဲ့ ID အမှန်
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
 warnings = {}
 welcome_messages = {}
 
-# --- Admin Check Function ---
+# --- Admin Check ---
 async def is_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
@@ -31,10 +31,7 @@ async def is_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if member.status in ['creator', 'administrator']:
             return True
         else:
-            await update.message.reply_text(
-                "သင်အသုံးပြုလို့မရပါ 🚫 \n\n"
-                "- ဒီ Commands တွေကို အုံနာနဲ့အက်မင်တွေသာအသုံးပြုနိုင်ပါတယ် ၊ အသုံးပြုလိုပါက အက်မင်ရယူပါ ။"
-            )
+            await update.message.reply_text("အုံနာနဲ့အက်မင်တွေသာဒီအရာတွေကိုအသုံးပြုနိုင်ပါတယ် ။")
             return False
     except:
         return False

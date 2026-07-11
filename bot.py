@@ -1,89 +1,86 @@
-import re
-from telegram import Update, ChatMember
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
+import logging
+from telegram import Update
+from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters
 
-TOKEN = "8971711916:AAHVPZTs_gL0kuUG-9jqYMEeot0wwLkGgNM"
+# Bot Token
+TOKEN = "8947711591:AAGblAYzsAL2T0meBSIwT5viF0SD40uZpdU"
 
-# Data Storage
-welcome_msgs, filters_data, warnings = {}, {}, {}
+# Warning များ သိမ်းဆည်းရန် Dictionary
+warnings = {}
 
-# Admin Check Function (Owner/Admin သီးသန့်)
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+
+# Admin ဖြစ်မဖြစ် စစ်ဆေးရန်
 async def is_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_status = await context.bot.get_chat_member(update.effective_chat.id, update.effective_user.id)
-    if user_status.status in [ChatMember.OWNER, ChatMember.ADMINISTRATOR]:
-        return True
-    await update.message.reply_text("ဒါကို ဂျီဘီအုံနာနဲ့အက်မင်များသာ အသုံးပြုခွင့်ရှိပါတယ် ၊ အသုံးပြုနိုင်ရန် အက်မင်ရယူပါ")
-    return False
+    chat_id = update.effective_chat.id
+    user_id = update.effective_user.id
+    member = await context.bot.get_chat_member(chat_id, user_id)
+    return member.status in ['creator', 'administrator']
 
-# 1. Calculator
-async def calc(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# Calculator (2+2 စနစ်)
+async def calculate(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
-    if re.match(r'^\d+\s*[\+\-\*/]\s*\d+$', text):
-        try:
-            res = eval(text)
-            await update.message.reply_text(f"{text} = {res}")
-        except: pass
+    try:
+        # ဂဏန်းနှင့် သင်္ကေတများကို ရှာပြီး တွက်ချက်ခြင်း
+        result = eval(text)
+        await update.message.reply_text(f"{text}={result}")
+    except:
+        pass
 
-# 2. Welcome System (Admin Only)
-async def set_welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not await is_admin(update, context): return
-    welcome_msgs[update.effective_chat.id] = " ".join(context.args)
-    await update.message.reply_text("ကြိုဆိုစာအသစ်ထည့်သွင်းလိုက်ပါပြီ ✅")
-
-async def welcome_delete(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not await is_admin(update, context): return
-    welcome_msgs.pop(update.effective_chat.id, None)
-    await update.message.reply_text("ကြိုဆိုစာဖျက်ပြီးပါပြီ ✅")
-
-# 3. Admin Tools
+# Ban Command
 async def ban(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await is_admin(update, context): return
     if update.message.reply_to_message:
-        await context.bot.ban_chat_member(update.effective_chat.id, update.message.reply_to_message.from_user.id)
-        await update.message.reply_text("Owner Banned From Group")
+        user_id = update.message.reply_to_message.from_user.id
+        await context.bot.ban_chat_member(update.effective_chat.id, user_id)
+        await update.message.reply_text("Group မှ ဘန်းလိုက်ပါတယ် ✅")
 
-async def warning(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# Unban Command
+async def unban(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await is_admin(update, context): return
-    chat_id, user_id = update.effective_chat.id, update.message.reply_to_message.from_user.id
-    if chat_id not in warnings: warnings[chat_id] = {}
-    warnings[chat_id][user_id] = warnings[chat_id].get(user_id, 0) + 1
-    if warnings[chat_id][user_id] >= 3:
-        await context.bot.ban_chat_member(chat_id, user_id)
-        await update.message.reply_text("Warning 3 ကြိမ်ပြည့်၍ Group မှ Ban လုပ်လိုက်ပါပြီ။")
-    else:
-        await update.message.reply_text(f"Warning ({warnings[chat_id][user_id]}) ကြိမ်ပေးလိုက်ပါပြီ။")
+    if context.args:
+        user_id = context.args[0]
+        await context.bot.unban_chat_member(update.effective_chat.id, user_id)
+        await update.message.reply_text("ဘန်းဖြည်ပြီးပါပြီ ✅")
 
-# 4. Filter System (Admin Only)
-async def set_filter(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# Warning System
+async def warn(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await is_admin(update, context): return
-    if len(context.args) < 2: return
-    key = context.args[0]
-    value = " ".join(context.args[1:])
-    chat_id = update.effective_chat.id
-    if chat_id not in filters_data: filters_data[chat_id] = {}
-    filters_data[chat_id][key] = value
-    await update.message.reply_text(f"'{key}' အတွက် filter ကို ထည့်သွင်းပြီးပါပြီ ✅")
+    if update.message.reply_to_message:
+        user_id = update.message.reply_to_message.from_user.id
+        warnings[user_id] = warnings.get(user_id, 0) + 1
+        
+        if warnings[user_id] == 1:
+            await update.message.reply_text("သင့်ကို Warning 1 ကြိမ်ပေးလိုက်ပြီ ✅ 3 ကြိမ်ပြည့်ပါက Group မှ Auto Ban ခံရမှာဖြစ်ပါတယ်")
+        elif warnings[user_id] == 2:
+            await update.message.reply_text("သင်၏ Warning 2 ကြိမ်ရှိသွားပါပြီ , 3 ကြိမ်ပြည့်လျှင် Group မှ Auto Ban ခံရမှာဖြစ်ပါတယ် ✅")
+        elif warnings[user_id] >= 3:
+            await context.bot.ban_chat_member(update.effective_chat.id, user_id)
+            await update.message.reply_text("ဝမ်းနည်းပါတယ် , Warning 3 ကြိမ်ပြည့်ပြီဖြစ်တဲ့အတွက် Group မှ Banned လုပ်လိုက်ပါသည် 🚫")
+            warnings[user_id] = 0
 
-# 5. Handler
-async def handle_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.effective_chat.id
-    text = update.message.text
-    if chat_id in filters_data and text in filters_data[chat_id]:
-        await update.message.reply_text(filters_data[chat_id][text])
-    else:
-        await calc(update, context)
+# Welcome Message
+welcome_msg = "ဟယ်လိုမဂ်လာပါ"
 
-# App Setup
-app = ApplicationBuilder().token(TOKEN).build()
-app.add_handlers([
-    CommandHandler("start", lambda u, c: u.message.reply_text("Reven Bot စတင်နေပါပြီ!")),
-    CommandHandler("welcome", set_welcome),
-    CommandHandler("welcomedelete", welcome_delete),
-    CommandHandler("ban", ban),
-    CommandHandler("warning", warning),
-    CommandHandler("filter", set_filter),
-    MessageHandler(filters.TEXT & (~filters.COMMAND), handle_all)
-])
+async def set_welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global welcome_msg
+    if not await is_admin(update, context): return
+    welcome_msg = " ".join(context.args)
+    await update.message.reply_text("Welcome စာသားကို ပြောင်းလဲလိုက်ပါပြီ။")
 
-print("Bot စတင်ပြီ...")
-app.run_polling()
+async def greet_new_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    for member in update.message.new_chat_members:
+        await update.message.reply_text(welcome_msg)
+
+if __name__ == '__main__':
+    app = ApplicationBuilder().token(TOKEN).build()
+    
+    app.add_handler(CommandHandler("ban", ban))
+    app.add_handler(CommandHandler("unban", unban))
+    app.add_handler(CommandHandler("warning", warn))
+    app.add_handler(CommandHandler("welcome", set_welcome))
+    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), calculate))
+    app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, greet_new_member))
+    
+    app.run_polling()
+    
